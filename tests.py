@@ -15,6 +15,7 @@ Credits: this notebook belongs to [Practical DL](https://docs.google.com/forms/d
 import torch
 import numpy as np
 import unittest
+from modules import *
 
 class TestLayers(unittest.TestCase):
     def test_Linear(self):

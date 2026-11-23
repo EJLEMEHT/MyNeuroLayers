@@ -25,7 +25,7 @@ class Module(object):
         """
         return self.updateOutput(input)
 
-    def backward(self,input, gradOutput):
+    def backward(self, input, gradOutput):
         """
         Performs a backpropagation step through the module, with respect to the given input.
 
@@ -134,6 +134,7 @@ class Sequential(Module):
     def __init__ (self):
         super(Sequential, self).__init__()
         self.modules = []
+        self.states = list()
 
     def add(self, module):
         """
@@ -155,6 +156,10 @@ class Sequential(Module):
         """
 
         # Your code goes here. ################################################
+        self.states.append(input)
+        for module in self.modules:
+            self.states.append(module.forward(self.states[0]))
+        self.output = self.states[-1]
         return self.output
 
     def backward(self, input, gradOutput):
@@ -179,6 +184,9 @@ class Sequential(Module):
 
         """
         # Your code goes here. ################################################
+        for i in range(len(self.modules)-1, -1, -1):
+            gradOutput = self.modules[i].backward(self.states[i], gradOutput)
+        self.gradInput = gradOutput
         return self.gradInput
 
 
@@ -249,18 +257,18 @@ class Linear(Module):
 
     def updateOutput(self, input):
         # Your code goes here. ################################################
-        # self.output = ...
+        self.output = input @ self.W.T + self.b
         return self.output
 
     def updateGradInput(self, input, gradOutput):
         # Your code goes here. ################################################
-        # self.gradInput = ...
+        self.gradInput = gradOutput @ self.W
         return self.gradInput
 
     def accGradParameters(self, input, gradOutput):
         # Your code goes here. ################################################
-        # self.gradW = ... ; self.gradb = ...
-        pass
+        self.gradW += gradOutput.T @ input
+        self.gradb += np.sum(gradOutput, axis=0)
 
     def zeroGradParameters(self):
         self.gradW.fill(0)
@@ -292,13 +300,16 @@ class SoftMax(Module):
 
     def updateOutput(self, input):
         # start with normalization for numerical stability
-        self.output = np.subtract(input, input.max(axis=1, keepdims=True))
+        shifted = np.subtract(input, input.max(axis=1, keepdims=True))
 
         # Your code goes here. ################################################
+        sum_exp = np.exp(shifted).sum(axis=1, keepdims=True)
+        self.output = shifted / sum_exp
         return self.output
 
     def updateGradInput(self, input, gradOutput):
         # Your code goes here. ################################################
+        self.gradInput = -self.output * (self.output * gradOutput).sum(axis=1, keepdims=True) + self.output * gradOutput
         return self.gradInput
 
     def __repr__(self):
@@ -319,13 +330,15 @@ class LogSoftMax(Module):
 
     def updateOutput(self, input):
         # start with normalization for numerical stability
-        self.output = np.subtract(input, input.max(axis=1, keepdims=True))
+        shifted = np.subtract(input, input.max(axis=1, keepdims=True))
 
         # Your code goes here. ################################################
+        self.output = shifted - np.log(np.exp(shifted).sum(axis=1, keepdims=True))
         return self.output
 
     def updateGradInput(self, input, gradOutput):
         # Your code goes here. ################################################
+        self.gradInput = gradOutput - np.exp(self.output) * gradOutput.sum(axis=1, keepdims=True)
         return self.gradInput
 
     def __repr__(self):
@@ -359,10 +372,26 @@ class BatchNormalization(Module):
     def updateOutput(self, input):
         # Your code goes here. ################################################
         # use self.EPS please
+        self.mean = input.mean(axis=0)
+        self.var = ((input - self.mean) ** 2).mean(axis=0)
+        if self.training:
+            if self.moving_mean is None:
+                self.moving_mean = np.zeros(input.shape[1])
+                self.moving_variance = np.zeros(input.shape[1])
+            self.moving_mean = self.moving_mean * self.alpha + self.mean * (1 - self.alpha)
+            self.moving_variance = self.moving_variance * self.alpha + self.var * (1 - self.alpha)
+            self.output = (input - self.mean) / np.sqrt(self.var + self.EPS)
+        else:
+            self.output = (input - self.moving_mean) / np.sqrt(self.moving_variance + self.EPS)
         return self.output
 
     def updateGradInput(self, input, gradOutput):
         # Your code goes here. ################################################
+        n = len(input)
+        print((1 / (np.sqrt(self.var + self.EPS))).shape)
+        print(((-1 / n) * self.output @ self.output.T + np.identity(n)).shape)
+        print((gradOutput).shape)
+        self.gradInput = (1 / (np.sqrt(self.var + self.EPS)))[None, :] * (((-1 / n) * self.output @ self.output.T + np.identity(n) - (1 / n) * np.ones([n, n])) @ gradOutput)
         return self.gradInput
 
     def __repr__(self):
