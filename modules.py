@@ -386,12 +386,15 @@ class BatchNormalization(Module):
         return self.output
 
     def updateGradInput(self, input, gradOutput):
-        # Your code goes here. ################################################
-        n = len(input)
-        print((1 / (np.sqrt(self.var + self.EPS))).shape)
-        print(((-1 / n) * self.output @ self.output.T + np.identity(n)).shape)
-        print((gradOutput).shape)
-        self.gradInput = (1 / (np.sqrt(self.var + self.EPS)))[None, :] * (((-1 / n) * self.output @ self.output.T + np.identity(n) - (1 / n) * np.ones([n, n])) @ gradOutput)
+        n = input.shape[0]
+        inv_std = 1 / np.sqrt(self.var + self.EPS)
+
+        self.gradInput = inv_std * (
+                gradOutput
+                - gradOutput.mean(axis=0)
+                - self.output * (gradOutput * self.output).mean(axis=0)
+        )
+
         return self.gradInput
 
     def __repr__(self):
