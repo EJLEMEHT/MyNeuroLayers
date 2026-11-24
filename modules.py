@@ -462,10 +462,16 @@ class Dropout(Module):
 
     def updateOutput(self, input):
         # Your code goes here. ################################################
-        return  self.output
+        if self.training:
+            self.mask = np.random.binomial(1, 1 - self.p, input.shape)
+            self.output = input * self.mask * (1 / (1-self.p))
+        else:
+            self.output = input
+        return self.output
 
     def updateGradInput(self, input, gradOutput):
         # Your code goes here. ################################################
+        self.gradInput = gradOutput * self.mask * (1 / (1 - self.p))
         return self.gradInput
 
     def __repr__(self):
@@ -503,10 +509,12 @@ class LeakyReLU(Module):
 
     def updateOutput(self, input):
         # Your code goes here. ################################################
-        return  self.output
+        self.output = np.maximum(input , input * self.slope)
+        return self.output
 
     def updateGradInput(self, input, gradOutput):
         # Your code goes here. ################################################
+        self.gradInput = np.multiply(gradOutput , np.where(input >= 0, 1, self.slope))
         return self.gradInput
 
     def __repr__(self):
@@ -524,10 +532,12 @@ class ELU(Module):
 
     def updateOutput(self, input):
         # Your code goes here. ################################################
-        return  self.output
+        self.output = np.where(input > 0, input, self.alpha * (np.exp(input) - 1))
+        return self.output
 
     def updateGradInput(self, input, gradOutput):
         # Your code goes here. ################################################
+        self.gradInput = gradOutput * np.where(input > 0, 1, self.output + self.alpha)
         return self.gradInput
 
     def __repr__(self):
@@ -543,10 +553,12 @@ class SoftPlus(Module):
 
     def updateOutput(self, input):
         # Your code goes here. ################################################
+        self.output = np.log(np.exp(input) + 1)
         return  self.output
 
     def updateGradInput(self, input, gradOutput):
         # Your code goes here. ################################################
+        self.gradInput = np.divide(gradOutput, 1 + np.exp(-input))
         return self.gradInput
 
     def __repr__(self):
@@ -644,6 +656,7 @@ class ClassNLLCriterionUnstable(Criterion):
         input_clamp = np.clip(input, self.EPS, 1 - self.EPS)
 
         # Your code goes here. ################################################
+        self.output = -np.mean(np.sum(target * np.log(input_clamp), axis=1))
         return self.output
 
     def updateGradInput(self, input, target):
@@ -652,6 +665,7 @@ class ClassNLLCriterionUnstable(Criterion):
         input_clamp = np.clip(input, self.EPS, 1 - self.EPS)
 
         # Your code goes here. ################################################
+        self.gradInput = - (1 / input.shape[0]) * target / input_clamp
         return self.gradInput
 
     def __repr__(self):

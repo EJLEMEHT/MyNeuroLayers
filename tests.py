@@ -354,7 +354,7 @@ class TestLayers(unittest.TestCase):
             layer_input_var = torch.from_numpy(layer_input).requires_grad_(True)
             torch_layer_output_var = torch_layer(
                 torch.log(layer_input_var),
-                torch.from_numpy(target_labels))
+                torch.from_numpy(target_labels).long())
             self.assertTrue(np.allclose(torch_layer_output_var.data.numpy(), custom_layer_output, atol=1e-6))
 
             # 2. check layer input grad
